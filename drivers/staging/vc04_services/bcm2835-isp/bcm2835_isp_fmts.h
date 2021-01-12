@@ -30,9 +30,28 @@ struct bcm2835_isp_fmt_list {
 	unsigned int num_entries;
 };
 
+/*
+ * Formats are distinguished both by fourcc and by colour space. WHen formats
+ * differ only in colour space, then everything except the colour space should
+ * be identical.
+ *
+ * The order of the colour spaces (when the fourccs match) is significant when
+ * the driver is told to use the "default" colour space - the first is chosen.
+ */
+
 static const struct bcm2835_isp_fmt supported_formats[] = {
 	{
 		/* YUV formats */
+		/* YUV420 */
+		.fourcc		    = V4L2_PIX_FMT_YUV420,
+		.depth		    = 8,
+		.bytesperline_align = 32,
+		.flags		    = 0,
+		.mmal_fmt	    = MMAL_ENCODING_I420,
+		.size_multiplier_x2 = 3,
+		.colorspace	    = V4L2_COLORSPACE_JPEG,
+		.step_size	    = 2,
+	}, {
 		.fourcc		    = V4L2_PIX_FMT_YUV420,
 		.depth		    = 8,
 		.bytesperline_align = 32,
@@ -40,6 +59,25 @@ static const struct bcm2835_isp_fmt supported_formats[] = {
 		.mmal_fmt	    = MMAL_ENCODING_I420,
 		.size_multiplier_x2 = 3,
 		.colorspace	    = V4L2_COLORSPACE_SMPTE170M,
+		.step_size	    = 2,
+	}, {
+		.fourcc		    = V4L2_PIX_FMT_YUV420,
+		.depth		    = 8,
+		.bytesperline_align = 32,
+		.flags		    = 0,
+		.mmal_fmt	    = MMAL_ENCODING_I420,
+		.size_multiplier_x2 = 3,
+		.colorspace	    = V4L2_COLORSPACE_REC709,
+		.step_size	    = 2,
+	}, {
+		/* YVU420 */
+		.fourcc		    = V4L2_PIX_FMT_YVU420,
+		.depth		    = 8,
+		.bytesperline_align = 32,
+		.flags		    = 0,
+		.mmal_fmt	    = MMAL_ENCODING_YV12,
+		.size_multiplier_x2 = 3,
+		.colorspace	    = V4L2_COLORSPACE_JPEG,
 		.step_size	    = 2,
 	}, {
 		.fourcc		    = V4L2_PIX_FMT_YVU420,
@@ -51,6 +89,25 @@ static const struct bcm2835_isp_fmt supported_formats[] = {
 		.colorspace	    = V4L2_COLORSPACE_SMPTE170M,
 		.step_size	    = 2,
 	}, {
+		.fourcc		    = V4L2_PIX_FMT_YVU420,
+		.depth		    = 8,
+		.bytesperline_align = 32,
+		.flags		    = 0,
+		.mmal_fmt	    = MMAL_ENCODING_YV12,
+		.size_multiplier_x2 = 3,
+		.colorspace	    = V4L2_COLORSPACE_REC709,
+		.step_size	    = 2,
+	}, {
+		/* NV12 */
+		.fourcc		    = V4L2_PIX_FMT_NV12,
+		.depth		    = 8,
+		.bytesperline_align = 32,
+		.flags		    = 0,
+		.mmal_fmt	    = MMAL_ENCODING_NV12,
+		.size_multiplier_x2 = 3,
+		.colorspace	    = V4L2_COLORSPACE_JPEG,
+		.step_size	    = 2,
+	}, {
 		.fourcc		    = V4L2_PIX_FMT_NV12,
 		.depth		    = 8,
 		.bytesperline_align = 32,
@@ -58,6 +115,25 @@ static const struct bcm2835_isp_fmt supported_formats[] = {
 		.mmal_fmt	    = MMAL_ENCODING_NV12,
 		.size_multiplier_x2 = 3,
 		.colorspace	    = V4L2_COLORSPACE_SMPTE170M,
+		.step_size	    = 2,
+	}, {
+		.fourcc		    = V4L2_PIX_FMT_NV12,
+		.depth		    = 8,
+		.bytesperline_align = 32,
+		.flags		    = 0,
+		.mmal_fmt	    = MMAL_ENCODING_NV12,
+		.size_multiplier_x2 = 3,
+		.colorspace	    = V4L2_COLORSPACE_REC709,
+		.step_size	    = 2,
+	}, {
+		/* NV21 */
+		.fourcc		    = V4L2_PIX_FMT_NV21,
+		.depth		    = 8,
+		.bytesperline_align = 32,
+		.flags		    = 0,
+		.mmal_fmt	    = MMAL_ENCODING_NV21,
+		.size_multiplier_x2 = 3,
+		.colorspace	    = V4L2_COLORSPACE_JPEG,
 		.step_size	    = 2,
 	}, {
 		.fourcc		    = V4L2_PIX_FMT_NV21,
@@ -69,6 +145,25 @@ static const struct bcm2835_isp_fmt supported_formats[] = {
 		.colorspace	    = V4L2_COLORSPACE_SMPTE170M,
 		.step_size	    = 2,
 	}, {
+		.fourcc		    = V4L2_PIX_FMT_NV21,
+		.depth		    = 8,
+		.bytesperline_align = 32,
+		.flags		    = 0,
+		.mmal_fmt	    = MMAL_ENCODING_NV21,
+		.size_multiplier_x2 = 3,
+		.colorspace	    = V4L2_COLORSPACE_REC709,
+		.step_size	    = 2,
+	}, {
+		/* YUYV */
+		.fourcc		    = V4L2_PIX_FMT_YUYV,
+		.depth		    = 16,
+		.bytesperline_align = 64,
+		.flags		    = 0,
+		.mmal_fmt	    = MMAL_ENCODING_YUYV,
+		.size_multiplier_x2 = 2,
+		.colorspace	    = V4L2_COLORSPACE_JPEG,
+		.step_size	    = 2,
+	}, {
 		.fourcc		    = V4L2_PIX_FMT_YUYV,
 		.depth		    = 16,
 		.bytesperline_align = 64,
@@ -76,6 +171,25 @@ static const struct bcm2835_isp_fmt supported_formats[] = {
 		.mmal_fmt	    = MMAL_ENCODING_YUYV,
 		.size_multiplier_x2 = 2,
 		.colorspace	    = V4L2_COLORSPACE_SMPTE170M,
+		.step_size	    = 2,
+	}, {
+		.fourcc		    = V4L2_PIX_FMT_YUYV,
+		.depth		    = 16,
+		.bytesperline_align = 64,
+		.flags		    = 0,
+		.mmal_fmt	    = MMAL_ENCODING_YUYV,
+		.size_multiplier_x2 = 2,
+		.colorspace	    = V4L2_COLORSPACE_REC709,
+		.step_size	    = 2,
+	}, {
+		/* UYVY */
+		.fourcc		    = V4L2_PIX_FMT_UYVY,
+		.depth		    = 16,
+		.bytesperline_align = 64,
+		.flags		    = 0,
+		.mmal_fmt	    = MMAL_ENCODING_UYVY,
+		.size_multiplier_x2 = 2,
+		.colorspace	    = V4L2_COLORSPACE_JPEG,
 		.step_size	    = 2,
 	}, {
 		.fourcc		    = V4L2_PIX_FMT_UYVY,
@@ -87,11 +201,58 @@ static const struct bcm2835_isp_fmt supported_formats[] = {
 		.colorspace	    = V4L2_COLORSPACE_SMPTE170M,
 		.step_size	    = 2,
 	}, {
+		.fourcc		    = V4L2_PIX_FMT_UYVY,
+		.depth		    = 16,
+		.bytesperline_align = 64,
+		.flags		    = 0,
+		.mmal_fmt	    = MMAL_ENCODING_UYVY,
+		.size_multiplier_x2 = 2,
+		.colorspace	    = V4L2_COLORSPACE_REC709,
+		.step_size	    = 2,
+	}, {
+		/* YVYU */
 		.fourcc		    = V4L2_PIX_FMT_YVYU,
 		.depth		    = 16,
 		.bytesperline_align = 64,
 		.flags		    = 0,
 		.mmal_fmt	    = MMAL_ENCODING_YVYU,
+		.size_multiplier_x2 = 2,
+		.colorspace	    = V4L2_COLORSPACE_JPEG,
+		.step_size	    = 2,
+	}, {
+		.fourcc		    = V4L2_PIX_FMT_YVYU,
+		.depth		    = 16,
+		.bytesperline_align = 64,
+		.flags		    = 0,
+		.mmal_fmt	    = MMAL_ENCODING_YVYU,
+		.size_multiplier_x2 = 2,
+		.colorspace	    = V4L2_COLORSPACE_SMPTE170M,
+		.step_size	    = 2,
+	}, {
+		.fourcc		    = V4L2_PIX_FMT_YVYU,
+		.depth		    = 16,
+		.bytesperline_align = 64,
+		.flags		    = 0,
+		.mmal_fmt	    = MMAL_ENCODING_YVYU,
+		.size_multiplier_x2 = 2,
+		.colorspace	    = V4L2_COLORSPACE_REC709,
+		.step_size	    = 2,
+	}, {
+		/* VYUY */
+		.fourcc		    = V4L2_PIX_FMT_VYUY,
+		.depth		    = 16,
+		.bytesperline_align = 64,
+		.flags		    = 0,
+		.mmal_fmt	    = MMAL_ENCODING_VYUY,
+		.size_multiplier_x2 = 2,
+		.colorspace	    = V4L2_COLORSPACE_JPEG,
+		.step_size	    = 2,
+	}, {
+		.fourcc		    = V4L2_PIX_FMT_VYUY,
+		.depth		    = 16,
+		.bytesperline_align = 64,
+		.flags		    = 0,
+		.mmal_fmt	    = MMAL_ENCODING_VYUY,
 		.size_multiplier_x2 = 2,
 		.colorspace	    = V4L2_COLORSPACE_SMPTE170M,
 		.step_size	    = 2,
@@ -102,7 +263,7 @@ static const struct bcm2835_isp_fmt supported_formats[] = {
 		.flags		    = 0,
 		.mmal_fmt	    = MMAL_ENCODING_VYUY,
 		.size_multiplier_x2 = 2,
-		.colorspace	    = V4L2_COLORSPACE_SMPTE170M,
+		.colorspace	    = V4L2_COLORSPACE_REC709,
 		.step_size	    = 2,
 	}, {
 		/* RGB formats */

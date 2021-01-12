@@ -218,17 +218,6 @@ static int set_digital_gain(struct bcm2835_isp_node *node, uint32_t gain)
 			     &digital_gain, sizeof(digital_gain));
 }
 
-static const struct bcm2835_isp_fmt *get_fmt(u32 mmal_fmt)
-{
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_SIZE(supported_formats); i++) {
-		if (supported_formats[i].mmal_fmt == mmal_fmt)
-			return &supported_formats[i];
-	}
-	return NULL;
-}
-
 static const
 struct bcm2835_isp_fmt *find_format_by_fourcc(unsigned int fourcc,
 					      struct bcm2835_isp_node *node)
@@ -247,13 +236,35 @@ struct bcm2835_isp_fmt *find_format_by_fourcc(unsigned int fourcc,
 }
 
 static const
+struct bcm2835_isp_fmt *find_format_by_fourcc_and_cs(unsigned int fourcc,
+						     enum v4l2_colorspace cs,
+						     struct bcm2835_isp_node *node)
+{
+	struct bcm2835_isp_fmt_list *fmts = &node->supported_fmts;
+	const struct bcm2835_isp_fmt *fmt;
+	unsigned int i;
+
+	/* The "default" colour space matches the first one that we come across. */
+	for (i = 0; i < fmts->num_entries; i++) {
+		fmt = fmts->list[i];
+		if (fmt->fourcc == fourcc &&
+		    (cs == V4L2_COLORSPACE_DEFAULT || cs == fmt->colorspace))
+			return fmt;
+	}
+
+	return NULL;
+}
+
+static const
 struct bcm2835_isp_fmt *find_format(struct v4l2_format *f,
 				    struct bcm2835_isp_node *node)
 {
-	return find_format_by_fourcc(node_is_stats(node) ?
-				     f->fmt.meta.dataformat :
-				     f->fmt.pix.pixelformat,
-				     node);
+	if (node_is_stats(node))
+		return find_format_by_fourcc(f->fmt.meta.dataformat, node);
+	else
+		return find_format_by_fourcc_and_cs(f->fmt.pix.pixelformat,
+						    f->fmt.pix.colorspace,
+						    node);
 }
 
 /* vb2_to_mmal_buffer() - converts vb2 buffer header to MMAL
@@ -330,10 +341,44 @@ static void mmal_buffer_cb(struct vchiq_mmal_instance *instance,
 		complete(&dev->frame_cmplt);
 }
 
+struct colorspace_translation {
+	enum v4l2_colorspace v4l2_value;
+	u32 mmal_value;
+};
+
+static u32 translate_color_space(enum v4l2_colorspace color_space)
+{
+	static const struct colorspace_translation translations[] = {
+		{ V4L2_COLORSPACE_DEFAULT, MMAL_COLOR_SPACE_UNKNOWN },
+		{ V4L2_COLORSPACE_SMPTE170M, MMAL_COLOR_SPACE_ITUR_BT601 },
+		{ V4L2_COLORSPACE_SMPTE240M, MMAL_COLOR_SPACE_SMPTE240M },
+		{ V4L2_COLORSPACE_REC709, MMAL_COLOR_SPACE_ITUR_BT709 },
+		/* V4L2_COLORSPACE_BT878 unavailable */
+		{ V4L2_COLORSPACE_470_SYSTEM_M, MMAL_COLOR_SPACE_BT470_2_M },
+		{ V4L2_COLORSPACE_470_SYSTEM_BG, MMAL_COLOR_SPACE_BT470_2_BG },
+		{ V4L2_COLORSPACE_JPEG, MMAL_COLOR_SPACE_JPEG_JFIF },
+		/* V4L2_COLORSPACE_SRGB unavailable */
+		/* V4L2_COLORSPACE_OPRGB unavailable */
+		/* V4L2_COLORSPACE_BT2020 unavailable */
+		/* V4L2_COLORSPACE_RAW unavailable */
+		/* V4L2_COLORSPACE_DCI_P3 unavailable */
+	};
+
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(translations); i++) {
+		if (color_space == translations[i].v4l2_value)
+			return translations[i].mmal_value;
+	}
+
+	return -1;
+}
+
 static void setup_mmal_port_format(struct bcm2835_isp_node *node,
 				   struct vchiq_mmal_port *port)
 {
 	struct bcm2835_isp_q_data *q_data = &node->q_data;
+	u32 mmal_colour_space;
 
 	port->format.encoding = q_data->fmt->mmal_fmt;
 	/* Raw image format - set width/height */
@@ -343,6 +388,15 @@ static void setup_mmal_port_format(struct bcm2835_isp_node *node,
 	port->es.video.crop.height = q_data->height;
 	port->es.video.crop.x = 0;
 	port->es.video.crop.y = 0;
+
+	mmal_colour_space = translate_color_space(q_data->fmt->colorspace);
+	if (mmal_colour_space == -1) {
+		v4l2_dbg(1, debug, &node->dev->v4l2_dev,
+			 "%s: no MMAL colour space for %d\n",
+			 __func__, q_data->fmt->colorspace);
+		mmal_colour_space = MMAL_COLOR_SPACE_UNKNOWN;
+	}
+	port->es.video.color_space = mmal_colour_space;
 };
 
 static int setup_mmal_port(struct bcm2835_isp_node *node)
@@ -922,15 +976,26 @@ static int bcm2835_isp_node_enum_fmt(struct file *file, void  *priv,
 {
 	struct bcm2835_isp_node *node = video_drvdata(file);
 	struct bcm2835_isp_fmt_list *fmts = &node->supported_fmts;
+	unsigned int i, j;
 
 	if (f->type != node->queue.type)
 		return -EINVAL;
 
-	if (f->index < fmts->num_entries) {
-		/* Format found */
-		f->pixelformat = fmts->list[f->index]->fourcc;
-		f->flags = fmts->list[f->index]->flags;
-		return 0;
+	/*
+	 * The supported formats list contains duplicate formats with different
+	 * colour spaces, so we must skip returning them twice. This also means
+	 * we must count from the start of the list each time.
+	 */
+	for (i = 0, j = 0; i < fmts->num_entries; i++) {
+		if (i > 0 && fmts->list[i]->fourcc == fmts->list[i-1]->fourcc)
+			continue; /* duplicate format */
+		if (j == f->index) {
+			/* Format found */
+			f->pixelformat = fmts->list[i]->fourcc;
+			f->flags = fmts->list[i]->flags;
+			return 0;
+		}
+		j++;
 	}
 
 	return -EINVAL;
@@ -946,6 +1011,7 @@ static int bcm2835_isp_enum_framesizes(struct file *file, void *priv,
 	if (node_is_stats(node) || fsize->index)
 		return -EINVAL;
 
+	/* All formats with the same fourcc should have the same step_size. */
 	fmt = find_format_by_fourcc(fsize->pixel_format, node);
 	if (!fmt) {
 		v4l2_err(&dev->v4l2_dev, "Invalid pixel code: %x\n",
@@ -1168,13 +1234,14 @@ static const struct v4l2_ioctl_ops bcm2835_isp_node_ioctl_ops = {
  * overhead on that.
  */
 #define MAX_SUPPORTED_ENCODINGS 50
+#define MAX_SUPPORTED_FORMATS 100
 
 /* Populate node->supported_fmts with the formats supported by those ports. */
 static int bcm2835_isp_get_supported_fmts(struct bcm2835_isp_node *node)
 {
 	struct bcm2835_isp_dev *dev = node_get_dev(node);
 	struct bcm2835_isp_fmt const **list;
-	unsigned int i, j, num_encodings;
+	unsigned int i, j, k, num_encodings, num_formats;
 	u32 fourccs[MAX_SUPPORTED_ENCODINGS];
 	u32 param_size = sizeof(fourccs);
 	int ret;
@@ -1200,25 +1267,44 @@ static int bcm2835_isp_get_supported_fmts(struct bcm2835_isp_node *node)
 	}
 
 	/*
-	 * Assume at this stage that all encodings will be supported in V4L2.
-	 * Any that aren't supported will waste a very small amount of memory.
+	 * Count all the formats so we can allocate the right amount of memory. This
+	 * only happens when a node is registered so it's not too expensive.
 	 */
+	num_formats = 0;
+	for (i = 0; i < num_encodings; i++) {
+		for (j = 0; j < ARRAY_SIZE(supported_formats); j++) {
+			if (supported_formats[j].mmal_fmt == fourccs[i])
+				num_formats++;
+		}
+	}
+
+	if (num_formats > MAX_SUPPORTED_FORMATS) {
+		v4l2_err(&dev->v4l2_dev,
+			 "%s: port has more formats than we provided space for. Some are dropped.\n",
+			 __func__);
+		num_formats = MAX_SUPPORTED_FORMATS;
+	}
+
+	/* Now allocate and populate the list. */
 	list = devm_kzalloc(dev->dev,
-			    sizeof(struct bcm2835_isp_fmt *) * num_encodings,
+			    sizeof(struct bcm2835_isp_fmt *) * num_formats,
 			    GFP_KERNEL);
 	if (!list)
 		return -ENOMEM;
 	node->supported_fmts.list = list;
+	node->supported_fmts.num_entries = num_formats;
 
-	for (i = 0, j = 0; i < num_encodings; i++) {
-		const struct bcm2835_isp_fmt *fmt = get_fmt(fourccs[i]);
-
-		if (fmt) {
-			list[j] = fmt;
-			j++;
+	k = 0;
+	for (i = 0; i < num_encodings; i++) {
+		for (j = 0; j < ARRAY_SIZE(supported_formats); j++) {
+			if (supported_formats[j].mmal_fmt == fourccs[i]) {
+				list[k++] = &supported_formats[j];
+				if (k == num_formats)
+					goto all_formats_done;
+			}
 		}
 	}
-	node->supported_fmts.num_entries = j;
+ all_formats_done:
 
 	return 0;
 }
