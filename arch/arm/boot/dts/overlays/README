@@ -1934,6 +1934,15 @@ Params: rotation                Mounting rotation of the camera sensor (0 or
                                 Compute Module (CSI0, i2c_vc, and cam0_reg).
 
 
+Name:   imx708
+Info:   Sony IMX708 camera module.
+        Uses Unicam 1, which is the standard camera connector on most Pi
+        variants.
+Load:   dtoverlay=imx708,<param>=<val>
+Params: rotation                Mounting rotation of the camera sensor (0 or
+                                180, default 180)
+
+
 Name:   iqaudio-codec
 Info:   Configures the IQaudio Codec audio card
 Load:   dtoverlay=iqaudio-codec
