@@ -1650,6 +1650,15 @@ Params: rotation                Mounting rotation of the camera sensor (0 or
                                 180, default 180)
 
 
+Name:   imx258
+Info:   Sony IMX258 camera module.
+        Uses Unicam 1, which is the standard camera connector on most Pi
+        variants.
+Load:   dtoverlay=imx258,<param>=<val>
+Params: rotation                Mounting rotation of the camera sensor (0 or
+                                180, default 180)
+
+
 Name:   imx290
 Info:   Sony IMX290 camera module.
         Uses Unicam 1, which is the standard camera connector on most Pi
